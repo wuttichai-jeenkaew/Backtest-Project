@@ -1,0 +1,439 @@
+// Backtest Recording System - Prisma Schema
+// Database: Supabase PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// TRADING SYSTEM / STRATEGY
+// ============================================
+model TradingSystem {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.Text
+  
+  // Strategy classification
+  type        SystemType @default(MANUAL)
+  assetClass  AssetClass @default(FOREX)
+  timeframe   String?    // e.g., "1H", "4H", "1D"
+  
+  // Entry/Exit rules (free text)
+  entryRules  String?  @db.Text
+  exitRules   String?  @db.Text
+  
+  // Metadata
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  backtests   BacktestResult[]
+  tags        SystemTag[]
+  journalEntries TradeJournalEntry[]
+  templates   BacktestTemplate[]
+  versions    SystemVersion[]
+  notes       Note[]
+  
+  @@index([name])
+  @@index([isActive])
+}
+
+enum SystemType {
+  MANUAL
+  SEMI_AUTO
+  FULLY_AUTO
+  INDICATOR_BASED
+  PRICE_ACTION
+}
+
+enum AssetClass {
+  STOCKS
+  FOREX
+  CRYPTO
+  FUTURES
+  OPTIONS
+  INDICES
+  COMMODITIES
+  MULTI_ASSET
+}
+
+// ============================================
+// BACKTEST RESULT
+// ============================================
+model BacktestResult {
+  id              String   @id @default(cuid())
+  
+  // Link to trading system
+  tradingSystemId String
+  tradingSystem   TradingSystem @relation(fields: [tradingSystemId], references: [id], onDelete: Cascade)
+  
+  // Test identification
+  name            String?        // Optional label for this specific test
+  symbol          String         // e.g., "AAPL", "EUR/USD", "BTC/USDT"
+  
+  // Test period
+  startDate       DateTime       @db.Date
+  endDate         DateTime       @db.Date
+  totalTradingDays Int?
+  
+  // Capital
+  startingCapital Decimal        @db.Decimal(15, 2)
+  endingCapital   Decimal        @db.Decimal(15, 2)
+  
+  // ========== PROFITABILITY METRICS ==========
+  netProfit       Decimal        @db.Decimal(15, 2)
+  netProfitPercent Decimal?      @db.Decimal(8, 4)
+  grossProfit     Decimal?       @db.Decimal(15, 2)
+  grossLoss       Decimal?       @db.Decimal(15, 2)
+  
+  // ========== RISK METRICS ==========
+  maxDrawdown     Decimal?       @db.Decimal(15, 2)
+  maxDrawdownPercent Decimal?    @db.Decimal(8, 4)
+  sharpeRatio     Decimal?       @db.Decimal(8, 4)
+  riskRewardRatio Decimal?       @db.Decimal(8, 4)
+  
+  // ========== TRADE STATISTICS ==========
+  totalTrades     Int
+  winningTrades   Int
+  losingTrades    Int
+  winRate         Decimal?       @db.Decimal(8, 4)
+  profitFactor    Decimal?       @db.Decimal(8, 4)
+  
+  averageWin      Decimal?       @db.Decimal(15, 2)
+  averageLoss     Decimal?       @db.Decimal(15, 2)
+  averageTrade    Decimal?       @db.Decimal(15, 2)
+  largestWin      Decimal?       @db.Decimal(15, 2)
+  largestLoss     Decimal?       @db.Decimal(15, 2)
+  expectancy      Decimal?       @db.Decimal(15, 2)
+  
+  maxConsecutiveWins   Int?
+  maxConsecutiveLosses Int?
+  
+  // ========== TIME METRICS ==========
+  averageHoldTime Decimal?       @db.Decimal(10, 2) // in hours
+  tradesPerDay    Decimal?       @db.Decimal(8, 4)
+  
+  // ========== METADATA ==========
+  notes           String?        @db.Text
+  dataSource      String?        // e.g., "TradingView", "MetaTrader", "Manual"
+  commission      Decimal?       @db.Decimal(10, 2)
+  slippage        Decimal?       @db.Decimal(10, 2)
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  equityCurve     EquityPoint[]
+  monthlyReturns  MonthlyReturn[]
+  journalEntries  TradeJournalEntry[]
+  versions        BacktestVersion[]
+  annotations     Note[]
+  
+  @@index([tradingSystemId])
+  @@index([symbol])
+  @@index([startDate, endDate])
+  @@index([createdAt])
+}
+
+// ============================================
+// EQUITY CURVE (For charting)
+// ============================================
+model EquityPoint {
+  id              String   @id @default(cuid())
+  backtestId      String
+  backtest        BacktestResult @relation(fields: [backtestId], references: [id], onDelete: Cascade)
+  
+  date            DateTime @db.Date
+  equity          Decimal  @db.Decimal(15, 2)
+  drawdown        Decimal? @db.Decimal(8, 4)  // % drawdown at this point
+  
+  notes           Note[]
+  
+  @@index([backtestId, date])
+}
+
+// ============================================
+// MONTHLY RETURNS (For calendar heatmap)
+// ============================================
+model MonthlyReturn {
+  id              String   @id @default(cuid())
+  backtestId      String
+  backtest        BacktestResult @relation(fields: [backtestId], references: [id], onDelete: Cascade)
+  
+  year            Int
+  month           Int      // 1-12
+  returnPercent   Decimal  @db.Decimal(8, 4)
+  trades          Int?
+  
+  @@unique([backtestId, year, month])
+  @@index([backtestId])
+}
+
+// ============================================
+// TRADE JOURNAL (Individual trade records)
+// ============================================
+model TradeJournalEntry {
+  id              String   @id @default(cuid())
+  backtestId      String?  // Optional link to backtest
+  backtest        BacktestResult? @relation(fields: [backtestId], references: [id], onDelete: Cascade)
+  systemId        String?  // Optional link to system
+  system          TradingSystem? @relation(fields: [systemId], references: [id], onDelete: SetNull)
+  
+  // Trade Details
+  symbol          String
+  direction       String   // "LONG" or "SHORT"
+  entryDate       DateTime @db.Date
+  entryPrice      Decimal  @db.Decimal(15, 6)
+  entryReason     String?  @db.Text
+  
+  exitDate        DateTime? @db.Date
+  exitPrice       Decimal?  @db.Decimal(15, 6)
+  exitReason      String?   @db.Text
+  
+  quantity        Decimal   @db.Decimal(15, 6)
+  stopLoss        Decimal?  @db.Decimal(15, 6)
+  takeProfit      Decimal?  @db.Decimal(15, 6)
+  
+  // Results (calculated or manual)
+  pnl             Decimal?  @db.Decimal(15, 2)
+  pnlPercent      Decimal?  @db.Decimal(8, 4)
+  rMultiple       Decimal?  @db.Decimal(8, 4)  // Risk/Reward achieved
+  
+  // Journal Notes
+  setup           String?   @db.Text  // Setup type/pattern
+  mistakes        String?   @db.Text
+  lessons         String?   @db.Text
+  emotionalState  String?   // "Calm", "FOMO", "Fear", etc.
+  rating          Int?      // 1-5 trade quality rating
+  screenshots     String?   @db.Text // URLs to screenshots (comma-separated)
+  
+  tags            String?   // Comma-separated tags
+  
+  notes           Note[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([backtestId])
+  @@index([systemId])
+  @@index([symbol])
+  @@index([entryDate])
+}
+
+// ============================================
+// TAGS FOR ORGANIZATION
+// ============================================
+model Tag {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  color     String?     // hex color for UI
+  
+  systems   SystemTag[]
+}
+
+model SystemTag {
+  systemId  String
+  tagId     String
+  system    TradingSystem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  tag       Tag           @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@id([systemId, tagId])
+}
+
+// ============================================
+// APP SETTINGS (Single-user preferences)
+// ============================================
+model AppSettings {
+  id                String   @id @default("default")
+  defaultCurrency   String   @default("USD")
+  dateFormat        String   @default("YYYY-MM-DD")
+  theme             String   @default("system")
+  defaultCapital    Decimal  @default(10000) @db.Decimal(15, 2)
+  
+  updatedAt         DateTime @updatedAt
+}
+
+// ============================================
+// PERFORMANCE GOALS
+// ============================================
+model PerformanceGoal {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @db.Text
+  
+  // Goal Type
+  goalType    GoalType
+  targetValue Decimal  @db.Decimal(15, 4)
+  currentValue Decimal @default(0) @db.Decimal(15, 4)
+  
+  // Time Period
+  startDate   DateTime
+  endDate     DateTime
+  
+  // Status
+  status      GoalStatus @default(IN_PROGRESS)
+  
+  // Optional: Link to specific system
+  systemId    String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([status])
+  @@index([endDate])
+}
+
+enum GoalType {
+  WIN_RATE        // Target win rate %
+  PROFIT_FACTOR   // Target profit factor
+  TOTAL_TRADES    // Number of trades
+  NET_PROFIT      // $ profit target
+  MAX_DRAWDOWN    // Keep drawdown under X%
+  MONTHLY_RETURN  // Monthly return %
+  CONSECUTIVE_WINS // Streak of wins
+  RISK_REWARD     // Average R:R ratio
+}
+
+enum GoalStatus {
+  IN_PROGRESS
+  ACHIEVED
+  FAILED
+  PAUSED
+}
+
+// ============================================
+// BACKTEST TEMPLATES
+// ============================================
+model BacktestTemplate {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?  @db.Text
+  
+  // Default values for new backtests
+  symbol          String?
+  startingCapital Decimal? @db.Decimal(15, 2)
+  dataSource      String?
+  commission      Decimal? @db.Decimal(10, 2)
+  slippage        Decimal? @db.Decimal(10, 2)
+  
+  // Link to trading system (optional)
+  systemId        String?
+  system          TradingSystem? @relation(fields: [systemId], references: [id], onDelete: SetNull)
+  
+  // Usage tracking
+  usageCount      Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([systemId])
+}
+
+// ============================================
+// SYSTEM VERSIONS (Track system evolution)
+// ============================================
+model SystemVersion {
+  id              String   @id @default(cuid())
+  
+  systemId        String
+  system          TradingSystem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  
+  // Version info
+  versionNumber   String   // e.g., "1.0", "2.0", "2.1"
+  versionName     String?  // e.g., "Initial", "Added SL optimization"
+  
+  // Snapshot of system rules at this version
+  entryRules      String?  @db.Text
+  exitRules       String?  @db.Text
+  description     String?  @db.Text
+  
+  // What changed in this version
+  changelog       String?  @db.Text
+  
+  // Performance summary at this version
+  avgWinRate      Decimal? @db.Decimal(8, 4)
+  avgProfitFactor Decimal? @db.Decimal(8, 4)
+  totalBacktests  Int      @default(0)
+  
+  // Mark backtests that belong to this version
+  isActive        Boolean  @default(true) // Current active version
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  backtests       BacktestVersion[]
+  
+  @@unique([systemId, versionNumber])
+  @@index([systemId])
+  @@index([isActive])
+}
+
+// Junction table to link backtests to versions
+model BacktestVersion {
+  backtestId      String
+  backtest        BacktestResult @relation(fields: [backtestId], references: [id], onDelete: Cascade)
+  
+  versionId       String
+  version         SystemVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  
+  assignedAt      DateTime @default(now())
+  
+  @@id([backtestId, versionId])
+}
+
+// ============================================
+// NOTES & ANNOTATIONS
+// ============================================
+model Note {
+  id              String   @id @default(cuid())
+  
+  // Content
+  title           String?
+  content         String   @db.Text
+  
+  // Note type
+  noteType        NoteType @default(GENERAL)
+  
+  // Optional links (polymorphic)
+  backtestId      String?
+  backtest        BacktestResult? @relation(fields: [backtestId], references: [id], onDelete: Cascade)
+  
+  systemId        String?
+  system          TradingSystem? @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  
+  journalEntryId  String?
+  journalEntry    TradeJournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  
+  // For equity curve annotations
+  equityPointId   String?
+  equityPoint     EquityPoint? @relation(fields: [equityPointId], references: [id], onDelete: Cascade)
+  
+  // Metadata
+  isPinned        Boolean  @default(false)
+  color           String?  // For highlighting
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([backtestId])
+  @@index([systemId])
+  @@index([journalEntryId])
+  @@index([noteType])
+}
+
+enum NoteType {
+  GENERAL         // General note
+  LESSON          // Lesson learned
+  IDEA            // Trading idea
+  IMPROVEMENT     // System improvement idea
+  WARNING         // Warning/caution
+  MILESTONE       // Achievement/milestone
+}
