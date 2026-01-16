@@ -28,6 +28,10 @@ model TradingSystem {
   entryRules  String?  @db.Text
   exitRules   String?  @db.Text
   
+  // Risk Management
+  riskPerTrade  Decimal?  @db.Decimal(8, 4)  // Risk % per trade (e.g., 0.9 = 0.9%)
+  defaultRR     Decimal?  @db.Decimal(8, 4)  // Default Risk:Reward ratio (e.g., 1.5 = 1:1.5)
+  
   // Metadata
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())

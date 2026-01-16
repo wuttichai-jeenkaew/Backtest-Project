@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { Check, Equal } from "lucide-react";
+import { Check, Equal, DollarSign, Percent } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,8 +47,11 @@ interface CompareClientProps {
   backtests: Backtest[];
 }
 
+type DisplayMode = "absolute" | "percentage";
+
 export function CompareClient({ backtests }: CompareClientProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("percentage");
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) =>
@@ -58,27 +61,51 @@ export function CompareClient({ backtests }: CompareClientProps) {
 
   const clearSelection = () => setSelectedIds([]);
 
-  const selectedBacktests = backtests.filter((bt) => selectedIds.includes(bt.id));
+  const selectedBacktests = backtests.filter((bt) =>
+    selectedIds.includes(bt.id)
+  );
+
+  // Helper function to calculate percentage of starting capital
+  const toPercent = (
+    value: number | null,
+    startingCapital: number | null
+  ): number | null => {
+    if (value === null || startingCapital === null || startingCapital === 0)
+      return null;
+    return (Number(value) / Number(startingCapital)) * 100;
+  };
+
+  const formatPercent = (value: number | null): string => {
+    if (value === null) return "-";
+    return `${value.toFixed(2)}%`;
+  };
+
+  const formatDollar = (value: number | null): string => {
+    if (value === null) return "-";
+    return `$${Number(value).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
 
   const metrics = [
     {
-      label: "Net Profit",
-      getValue: (bt: Backtest) => `$${Number(bt.netProfit).toLocaleString()}`,
-      getRawValue: (bt: Backtest) => Number(bt.netProfit) || 0,
-      getBestIds: (bts: Backtest[]) => {
-        const maxVal = Math.max(...bts.map((bt) => Number(bt.netProfit) || 0));
-        return bts.filter((bt) => (Number(bt.netProfit) || 0) === maxVal).map((bt) => bt.id);
-      },
-      isProfit: true,
-    },
-    {
-      label: "Return %",
+      label: displayMode === "percentage" ? "Return %" : "Net Profit",
       getValue: (bt: Backtest) =>
-        bt.netProfitPercent ? `${Number(bt.netProfitPercent).toFixed(2)}%` : "-",
-      getRawValue: (bt: Backtest) => Number(bt.netProfitPercent) || 0,
+        displayMode === "percentage"
+          ? formatPercent(Number(bt.netProfitPercent))
+          : formatDollar(Number(bt.netProfit)),
+      getRawValue: (bt: Backtest) =>
+        displayMode === "percentage"
+          ? Number(bt.netProfitPercent) || 0
+          : Number(bt.netProfit) || 0,
       getBestIds: (bts: Backtest[]) => {
-        const maxVal = Math.max(...bts.map((bt) => Number(bt.netProfitPercent) || 0));
-        return bts.filter((bt) => (Number(bt.netProfitPercent) || 0) === maxVal).map((bt) => bt.id);
+        const getValue =
+          displayMode === "percentage"
+            ? (bt: Backtest) => Number(bt.netProfitPercent) || 0
+            : (bt: Backtest) => Number(bt.netProfit) || 0;
+        const maxVal = Math.max(...bts.map(getValue));
+        return bts.filter((bt) => getValue(bt) === maxVal).map((bt) => bt.id);
       },
       isProfit: true,
     },
@@ -89,7 +116,9 @@ export function CompareClient({ backtests }: CompareClientProps) {
       getRawValue: (bt: Backtest) => Number(bt.winRate) || 0,
       getBestIds: (bts: Backtest[]) => {
         const maxVal = Math.max(...bts.map((bt) => Number(bt.winRate) || 0));
-        return bts.filter((bt) => (Number(bt.winRate) || 0) === maxVal).map((bt) => bt.id);
+        return bts
+          .filter((bt) => (Number(bt.winRate) || 0) === maxVal)
+          .map((bt) => bt.id);
       },
     },
     {
@@ -98,8 +127,12 @@ export function CompareClient({ backtests }: CompareClientProps) {
         bt.profitFactor ? Number(bt.profitFactor).toFixed(2) : "-",
       getRawValue: (bt: Backtest) => Number(bt.profitFactor) || 0,
       getBestIds: (bts: Backtest[]) => {
-        const maxVal = Math.max(...bts.map((bt) => Number(bt.profitFactor) || 0));
-        return bts.filter((bt) => (Number(bt.profitFactor) || 0) === maxVal).map((bt) => bt.id);
+        const maxVal = Math.max(
+          ...bts.map((bt) => Number(bt.profitFactor) || 0)
+        );
+        return bts
+          .filter((bt) => (Number(bt.profitFactor) || 0) === maxVal)
+          .map((bt) => bt.id);
       },
     },
     {
@@ -108,8 +141,12 @@ export function CompareClient({ backtests }: CompareClientProps) {
         bt.sharpeRatio ? Number(bt.sharpeRatio).toFixed(2) : "-",
       getRawValue: (bt: Backtest) => Number(bt.sharpeRatio) || 0,
       getBestIds: (bts: Backtest[]) => {
-        const maxVal = Math.max(...bts.map((bt) => Number(bt.sharpeRatio) || 0));
-        return bts.filter((bt) => (Number(bt.sharpeRatio) || 0) === maxVal).map((bt) => bt.id);
+        const maxVal = Math.max(
+          ...bts.map((bt) => Number(bt.sharpeRatio) || 0)
+        );
+        return bts
+          .filter((bt) => (Number(bt.sharpeRatio) || 0) === maxVal)
+          .map((bt) => bt.id);
       },
     },
     {
@@ -118,11 +155,18 @@ export function CompareClient({ backtests }: CompareClientProps) {
         bt.maxDrawdownPercent
           ? `${Number(bt.maxDrawdownPercent).toFixed(1)}%`
           : "-",
-      getRawValue: (bt: Backtest) => Math.abs(Number(bt.maxDrawdownPercent) || 0),
+      getRawValue: (bt: Backtest) =>
+        Math.abs(Number(bt.maxDrawdownPercent) || 0),
       getBestIds: (bts: Backtest[]) => {
-        const vals = bts.map((bt) => Math.abs(Number(bt.maxDrawdownPercent) || 0));
+        const vals = bts.map((bt) =>
+          Math.abs(Number(bt.maxDrawdownPercent) || 0)
+        );
         const minVal = Math.min(...vals);
-        return bts.filter((bt) => Math.abs(Number(bt.maxDrawdownPercent) || 0) === minVal).map((bt) => bt.id);
+        return bts
+          .filter(
+            (bt) => Math.abs(Number(bt.maxDrawdownPercent) || 0) === minVal
+          )
+          .map((bt) => bt.id);
       },
       isLowerBetter: true,
     },
@@ -145,35 +189,65 @@ export function CompareClient({ backtests }: CompareClientProps) {
       getBestIds: () => [] as string[],
     },
     {
-      label: "Average Win",
+      label: displayMode === "percentage" ? "Avg Win %" : "Average Win",
       getValue: (bt: Backtest) =>
-        bt.averageWin ? `$${Number(bt.averageWin).toFixed(2)}` : "-",
-      getRawValue: (bt: Backtest) => Number(bt.averageWin) || 0,
+        displayMode === "percentage"
+          ? formatPercent(toPercent(bt.averageWin, bt.startingCapital))
+          : formatDollar(Number(bt.averageWin)),
+      getRawValue: (bt: Backtest) =>
+        displayMode === "percentage"
+          ? toPercent(bt.averageWin, bt.startingCapital) || 0
+          : Number(bt.averageWin) || 0,
       getBestIds: (bts: Backtest[]) => {
-        const maxVal = Math.max(...bts.map((bt) => Number(bt.averageWin) || 0));
-        return bts.filter((bt) => (Number(bt.averageWin) || 0) === maxVal).map((bt) => bt.id);
+        const getValue =
+          displayMode === "percentage"
+            ? (bt: Backtest) =>
+                toPercent(bt.averageWin, bt.startingCapital) || 0
+            : (bt: Backtest) => Number(bt.averageWin) || 0;
+        const maxVal = Math.max(...bts.map(getValue));
+        return bts.filter((bt) => getValue(bt) === maxVal).map((bt) => bt.id);
       },
     },
     {
-      label: "Average Loss",
+      label: displayMode === "percentage" ? "Avg Loss %" : "Average Loss",
       getValue: (bt: Backtest) =>
-        bt.averageLoss ? `$${Number(bt.averageLoss).toFixed(2)}` : "-",
-      getRawValue: (bt: Backtest) => Math.abs(Number(bt.averageLoss) || 0),
+        displayMode === "percentage"
+          ? formatPercent(toPercent(bt.averageLoss, bt.startingCapital))
+          : formatDollar(Number(bt.averageLoss)),
+      getRawValue: (bt: Backtest) =>
+        displayMode === "percentage"
+          ? Math.abs(toPercent(bt.averageLoss, bt.startingCapital) || 0)
+          : Math.abs(Number(bt.averageLoss) || 0),
       getBestIds: (bts: Backtest[]) => {
-        const vals = bts.map((bt) => Math.abs(Number(bt.averageLoss) || 0));
+        const getValue =
+          displayMode === "percentage"
+            ? (bt: Backtest) =>
+                Math.abs(toPercent(bt.averageLoss, bt.startingCapital) || 0)
+            : (bt: Backtest) => Math.abs(Number(bt.averageLoss) || 0);
+        const vals = bts.map(getValue);
         const minVal = Math.min(...vals);
-        return bts.filter((bt) => Math.abs(Number(bt.averageLoss) || 0) === minVal).map((bt) => bt.id);
+        return bts.filter((bt) => getValue(bt) === minVal).map((bt) => bt.id);
       },
       isLowerBetter: true,
     },
     {
-      label: "Expectancy",
+      label: displayMode === "percentage" ? "Expectancy %" : "Expectancy",
       getValue: (bt: Backtest) =>
-        bt.expectancy ? `$${Number(bt.expectancy).toFixed(2)}` : "-",
-      getRawValue: (bt: Backtest) => Number(bt.expectancy) || 0,
+        displayMode === "percentage"
+          ? formatPercent(toPercent(bt.expectancy, bt.startingCapital))
+          : formatDollar(Number(bt.expectancy)),
+      getRawValue: (bt: Backtest) =>
+        displayMode === "percentage"
+          ? toPercent(bt.expectancy, bt.startingCapital) || 0
+          : Number(bt.expectancy) || 0,
       getBestIds: (bts: Backtest[]) => {
-        const maxVal = Math.max(...bts.map((bt) => Number(bt.expectancy) || 0));
-        return bts.filter((bt) => (Number(bt.expectancy) || 0) === maxVal).map((bt) => bt.id);
+        const getValue =
+          displayMode === "percentage"
+            ? (bt: Backtest) =>
+                toPercent(bt.expectancy, bt.startingCapital) || 0
+            : (bt: Backtest) => Number(bt.expectancy) || 0;
+        const maxVal = Math.max(...bts.map(getValue));
+        return bts.filter((bt) => getValue(bt) === maxVal).map((bt) => bt.id);
       },
     },
   ];
@@ -210,7 +284,7 @@ export function CompareClient({ backtests }: CompareClientProps) {
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">
-                        {bt.tradingSystem.name}
+                        {bt.name || bt.tradingSystem.name}
                       </p>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Badge variant="outline" className="text-xs">
@@ -245,8 +319,28 @@ export function CompareClient({ backtests }: CompareClientProps) {
 
       {/* Comparison Table */}
       <Card className="lg:col-span-2">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Comparison</CardTitle>
+          <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
+            <Button
+              variant={displayMode === "percentage" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => setDisplayMode("percentage")}
+            >
+              <Percent className="h-4 w-4" />
+              <span className="hidden sm:inline">Percentage</span>
+            </Button>
+            <Button
+              variant={displayMode === "absolute" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => setDisplayMode("absolute")}
+            >
+              <DollarSign className="h-4 w-4" />
+              <span className="hidden sm:inline">Absolute</span>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {selectedBacktests.length >= 2 ? (
@@ -258,7 +352,9 @@ export function CompareClient({ backtests }: CompareClientProps) {
                     {selectedBacktests.map((bt) => (
                       <TableHead key={bt.id} className="min-w-[120px]">
                         <div className="space-y-1">
-                          <p className="font-medium">{bt.tradingSystem.name}</p>
+                          <p className="font-medium">
+                            {bt.name || bt.tradingSystem.name}
+                          </p>
                           <Badge variant="outline" className="text-xs">
                             {bt.symbol}
                           </Badge>
@@ -282,7 +378,9 @@ export function CompareClient({ backtests }: CompareClientProps) {
                           return (
                             <TableCell
                               key={bt.id}
-                              className={isBest ? "bg-green-50 dark:bg-green-950" : ""}
+                              className={
+                                isBest ? "bg-green-50 dark:bg-green-950" : ""
+                              }
                             >
                               <div className="flex items-center gap-2">
                                 <span

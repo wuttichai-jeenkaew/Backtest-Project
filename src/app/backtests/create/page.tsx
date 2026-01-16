@@ -8,8 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import prisma from "@/lib/prisma";
 import { createBacktest } from "../actions";
 import { Plus } from "lucide-react";
+import { serializeSystems } from "@/lib/serialize";
 
-interface NewBacktestPageProps {
+interface CreateBacktestPageProps {
   searchParams: Promise<{ systemId?: string }>;
 }
 
@@ -20,9 +21,14 @@ async function getSystems() {
   });
 }
 
-export default async function NewBacktestPage({ searchParams }: NewBacktestPageProps) {
+export default async function CreateBacktestPage({
+  searchParams,
+}: CreateBacktestPageProps) {
   const { systemId } = await searchParams;
   const systems = await getSystems();
+
+  // Serialize Decimal fields for Client Component
+  const serializedSystems = serializeSystems(systems);
 
   async function handleCreate(formData: FormData) {
     "use server";
@@ -33,7 +39,7 @@ export default async function NewBacktestPage({ searchParams }: NewBacktestPageP
   if (systems.length === 0) {
     return (
       <>
-        <Header title="New Backtest" />
+        <Header title="Create Backtest" />
         <div className="flex flex-1 flex-col gap-4 p-4 max-w-3xl">
           <Card>
             <CardHeader>
@@ -58,11 +64,11 @@ export default async function NewBacktestPage({ searchParams }: NewBacktestPageP
 
   return (
     <>
-      <Header title="Record New Backtest" />
+      <Header title="Create Backtest" />
       <div className="flex flex-1 flex-col gap-4 p-4 max-w-3xl">
         <BacktestForm
           action={handleCreate}
-          systems={systems}
+          systems={serializedSystems}
           defaultSystemId={systemId}
           submitLabel="Save Backtest"
         />

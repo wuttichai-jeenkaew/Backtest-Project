@@ -26,6 +26,8 @@ interface SystemFormProps {
     timeframe?: string | null;
     entryRules?: string | null;
     exitRules?: string | null;
+    riskPerTrade?: number | null;
+    defaultRR?: number | null;
     isActive?: boolean;
   };
   submitLabel: string;
@@ -52,7 +54,11 @@ const assetClasses: { value: AssetClass; label: string }[] = [
 
 const timeframes = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN"];
 
-export function SystemForm({ action, initialData, submitLabel }: SystemFormProps) {
+export function SystemForm({
+  action,
+  initialData,
+  submitLabel,
+}: SystemFormProps) {
   const router = useRouter();
 
   return (
@@ -103,7 +109,10 @@ export function SystemForm({ action, initialData, submitLabel }: SystemFormProps
 
             <div className="space-y-2">
               <Label htmlFor="assetClass">Asset Class *</Label>
-              <Select name="assetClass" defaultValue={initialData?.assetClass || "FOREX"}>
+              <Select
+                name="assetClass"
+                defaultValue={initialData?.assetClass || "FOREX"}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select asset class" />
                 </SelectTrigger>
@@ -119,7 +128,10 @@ export function SystemForm({ action, initialData, submitLabel }: SystemFormProps
 
             <div className="space-y-2">
               <Label htmlFor="timeframe">Timeframe</Label>
-              <Select name="timeframe" defaultValue={initialData?.timeframe || ""}>
+              <Select
+                name="timeframe"
+                defaultValue={initialData?.timeframe || ""}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select timeframe" />
                 </SelectTrigger>
@@ -165,6 +177,48 @@ export function SystemForm({ action, initialData, submitLabel }: SystemFormProps
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Risk Management</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="riskPerTrade">Risk per Trade (%)</Label>
+              <Input
+                id="riskPerTrade"
+                name="riskPerTrade"
+                type="number"
+                step="0.01"
+                min="0.01"
+                max="100"
+                placeholder="e.g., 0.9"
+                defaultValue={initialData?.riskPerTrade ?? ""}
+              />
+              <p className="text-xs text-muted-foreground">
+                เช่น 0.9 = เสี่ยง 0.9% ต่อไม้
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="defaultRR">Default RR Ratio (1:X)</Label>
+              <Input
+                id="defaultRR"
+                name="defaultRR"
+                type="number"
+                step="0.1"
+                min="0.1"
+                placeholder="e.g., 1.5"
+                defaultValue={initialData?.defaultRR ?? ""}
+              />
+              <p className="text-xs text-muted-foreground">
+                เช่น 1.5 = RR 1:1.5
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {initialData && (
         <Card>
           <CardHeader>
@@ -173,7 +227,10 @@ export function SystemForm({ action, initialData, submitLabel }: SystemFormProps
           <CardContent>
             <div className="space-y-2">
               <Label htmlFor="isActive">System Status</Label>
-              <Select name="isActive" defaultValue={initialData.isActive ? "true" : "false"}>
+              <Select
+                name="isActive"
+                defaultValue={initialData.isActive ? "true" : "false"}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

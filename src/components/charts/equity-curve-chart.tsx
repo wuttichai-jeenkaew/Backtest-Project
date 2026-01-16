@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { createChart, ColorType, IChartApi, Time, AreaSeries, LineSeries } from "lightweight-charts";
+import {
+  createChart,
+  ColorType,
+  IChartApi,
+  Time,
+  AreaSeries,
+  LineSeries,
+} from "lightweight-charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,43 +43,70 @@ export function EquityCurveChart({
 }: EquityCurveChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const isChartDisposedRef = useRef(false);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [bulkData, setBulkData] = useState("");
-  const [manualPoints, setManualPoints] = useState<{ date: string; equity: string }[]>([
-    { date: "", equity: "" },
-  ]);
+  const [manualPoints, setManualPoints] = useState<
+    { date: string; equity: string }[]
+  >([{ date: "", equity: "" }]);
 
-  // Memoize chart data
-  const chartData = useMemo(
-    () =>
-      data.map((point) => ({
-        time: point.date as Time,
+  // Memoize chart data - sort by date and remove duplicates
+  const chartData = useMemo(() => {
+    // Sort by date
+    const sorted = [...data].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    // Remove duplicates (keep last value for each date)
+    const uniqueMap = new Map<string, { time: Time; value: number }>();
+    for (const point of sorted) {
+      const dateKey = point.date.split("T")[0]; // Normalize date format
+      uniqueMap.set(dateKey, {
+        time: dateKey as Time,
         value: Number(point.equity),
-      })),
-    [data]
-  );
+      });
+    }
 
-  const drawdownData = useMemo(
-    () =>
-      data
-        .filter((point) => point.drawdown !== null && point.drawdown !== undefined)
-        .map((point) => ({
-          time: point.date as Time,
-          value: Number(point.drawdown) * -1,
-        })),
-    [data]
-  );
+    return Array.from(uniqueMap.values());
+  }, [data]);
+
+  const drawdownData = useMemo(() => {
+    // Sort by date
+    const sorted = [...data]
+      .filter(
+        (point) => point.drawdown !== null && point.drawdown !== undefined
+      )
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Remove duplicates (keep last value for each date)
+    const uniqueMap = new Map<string, { time: Time; value: number }>();
+    for (const point of sorted) {
+      const dateKey = point.date.split("T")[0];
+      uniqueMap.set(dateKey, {
+        time: dateKey as Time,
+        value: Number(point.drawdown) * -1,
+      });
+    }
+
+    return Array.from(uniqueMap.values());
+  }, [data]);
 
   // Initialize chart
   const initChart = useCallback(() => {
     if (!chartContainerRef.current) return;
 
-    // Clean up existing chart
-    if (chartRef.current) {
-      chartRef.current.remove();
+    // Clean up existing chart safely
+    if (chartRef.current && !isChartDisposedRef.current) {
+      try {
+        chartRef.current.remove();
+      } catch {
+        // Chart already disposed, ignore
+      }
       chartRef.current = null;
     }
+
+    isChartDisposedRef.current = false;
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -142,16 +176,32 @@ export function EquityCurveChart({
     const chart = initChart();
 
     const handleResize = () => {
-      if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
+      if (
+        chartContainerRef.current &&
+        chartRef.current &&
+        !isChartDisposedRef.current
+      ) {
+        try {
+          chartRef.current.applyOptions({
+            width: chartContainerRef.current.clientWidth,
+          });
+        } catch {
+          // Chart disposed, ignore
+        }
       }
     };
     window.addEventListener("resize", handleResize);
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      if (chart) {
-        chart.remove();
+      if (chart && !isChartDisposedRef.current) {
+        isChartDisposedRef.current = true;
+        try {
+          chart.remove();
+        } catch {
+          // Chart already disposed, ignore
+        }
+        chartRef.current = null;
       }
     };
   }, [initChart]);
@@ -164,7 +214,11 @@ export function EquityCurveChart({
     setManualPoints(manualPoints.filter((_, i) => i !== index));
   };
 
-  const updateManualPoint = (index: number, field: "date" | "equity", value: string) => {
+  const updateManualPoint = (
+    index: number,
+    field: "date" | "equity",
+    value: string
+  ) => {
     const newPoints = [...manualPoints];
     newPoints[index][field] = value;
     setManualPoints(newPoints);
@@ -243,7 +297,9 @@ export function EquityCurveChart({
                           <Input
                             type="date"
                             value={point.date}
-                            onChange={(e) => updateManualPoint(index, "date", e.target.value)}
+                            onChange={(e) =>
+                              updateManualPoint(index, "date", e.target.value)
+                            }
                           />
                         </div>
                         <div className="flex-1">
@@ -251,7 +307,9 @@ export function EquityCurveChart({
                           <Input
                             type="number"
                             value={point.equity}
-                            onChange={(e) => updateManualPoint(index, "equity", e.target.value)}
+                            onChange={(e) =>
+                              updateManualPoint(index, "equity", e.target.value)
+                            }
                             placeholder="10000"
                           />
                         </div>
@@ -266,7 +324,11 @@ export function EquityCurveChart({
                       </div>
                     ))}
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={addManualPoint}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={addManualPoint}
+                      >
                         <Plus className="h-4 w-4 mr-1" />
                         Add Row
                       </Button>
@@ -281,7 +343,9 @@ export function EquityCurveChart({
                       <span className="w-full border-t" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">Or</span>
+                      <span className="bg-background px-2 text-muted-foreground">
+                        Or
+                      </span>
                     </div>
                   </div>
 
@@ -297,7 +361,10 @@ export function EquityCurveChart({
                       value={bulkData}
                       onChange={(e) => setBulkData(e.target.value)}
                     />
-                    <Button onClick={handleBulkImport} disabled={!bulkData.trim()}>
+                    <Button
+                      onClick={handleBulkImport}
+                      disabled={!bulkData.trim()}
+                    >
                       Import Data
                     </Button>
                   </div>
@@ -319,7 +386,9 @@ export function EquityCurveChart({
           <div className="h-[300px] flex items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg">
             <div className="text-center">
               <p>No equity curve data</p>
-              <p className="text-sm">Add data points to visualize performance over time</p>
+              <p className="text-sm">
+                Add data points to visualize performance over time
+              </p>
             </div>
           </div>
         )}

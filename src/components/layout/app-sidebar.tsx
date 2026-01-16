@@ -17,7 +17,7 @@ import {
   StickyNote,
   CalendarDays,
   LineChart,
-  PenTool,
+  ChevronRight,
 } from "lucide-react";
 
 import {
@@ -30,8 +30,16 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const menuItems = [
   {
@@ -50,19 +58,9 @@ const menuItems = [
     icon: FlaskConical,
   },
   {
-    title: "Compare",
-    url: "/compare",
-    icon: GitCompare,
-  },
-  {
     title: "Charts",
     url: "/charts",
     icon: LineChart,
-  },
-  {
-    title: "Drawing Chart",
-    url: "/drawing-chart",
-    icon: PenTool,
   },
   {
     title: "Trade Journal",
@@ -106,6 +104,11 @@ const menuItems = [
   },
 ];
 
+const compareSubItems = [
+  { title: "Backtests", url: "/compare" },
+  { title: "Systems", url: "/compare/systems" },
+];
+
 export function AppSidebar() {
   const pathname = usePathname();
 
@@ -138,6 +141,41 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {/* Compare with submenu */}
+              <Collapsible
+                asChild
+                defaultOpen={pathname.startsWith("/compare")}
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={pathname.startsWith("/compare")}
+                    >
+                      <GitCompare className="h-4 w-4" />
+                      <span>Compare</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {compareSubItems.map((subItem) => (
+                        <SidebarMenuSubItem key={subItem.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={pathname === subItem.url}
+                          >
+                            <Link href={subItem.url}>
+                              <span>{subItem.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

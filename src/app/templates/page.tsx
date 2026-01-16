@@ -1,16 +1,29 @@
-import { prisma } from "@/lib/prisma"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Plus, FileText, MoreHorizontal, Pencil, Trash2, Copy } from "lucide-react"
-import Link from "next/link"
+import { prisma } from "@/lib/prisma";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Plus,
+  FileText,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Copy,
+} from "lucide-react";
+import Link from "next/link";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { DeleteTemplateButton } from "@/components/templates/delete-template-button"
+} from "@/components/ui/dropdown-menu";
+import { DeleteTemplateButton } from "@/components/templates/delete-template-button";
 
 async function getTemplates() {
   const templates = await prisma.backtestTemplate.findMany({
@@ -18,30 +31,32 @@ async function getTemplates() {
       system: {
         select: {
           id: true,
-          name: true
-        }
-      }
+          name: true,
+        },
+      },
     },
-    orderBy: { usageCount: 'desc' }
-  })
+    orderBy: { usageCount: "desc" },
+  });
 
-  return templates.map(t => ({
+  return templates.map((t) => ({
     ...t,
     startingCapital: t.startingCapital ? Number(t.startingCapital) : null,
     commission: t.commission ? Number(t.commission) : null,
-    slippage: t.slippage ? Number(t.slippage) : null
-  }))
+    slippage: t.slippage ? Number(t.slippage) : null,
+  }));
 }
 
 export default async function TemplatesPage() {
-  const templates = await getTemplates()
+  const templates = await getTemplates();
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Backtest Templates</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Backtest Templates
+          </h1>
           <p className="text-muted-foreground">
             สร้าง Template เพื่อลดเวลาในการกรอกข้อมูล Backtest ซ้ำๆ
           </p>
@@ -74,7 +89,10 @@ export default async function TemplatesPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {templates.map((template) => (
-            <Card key={template.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={template.id}
+              className="hover:shadow-md transition-shadow"
+            >
               <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                 <div className="space-y-1">
                   <CardTitle className="text-lg">{template.name}</CardTitle>
@@ -97,13 +115,16 @@ export default async function TemplatesPage() {
                         แก้ไข
                       </DropdownMenuItem>
                     </Link>
-                    <Link href={`/backtests/new?templateId=${template.id}`}>
+                    <Link href={`/backtests/create?templateId=${template.id}`}>
                       <DropdownMenuItem>
                         <Copy className="h-4 w-4 mr-2" />
                         ใช้ Template นี้
                       </DropdownMenuItem>
                     </Link>
-                    <DeleteTemplateButton templateId={template.id} templateName={template.name} />
+                    <DeleteTemplateButton
+                      templateId={template.id}
+                      templateName={template.name}
+                    />
                   </DropdownMenuContent>
                 </DropdownMenu>
               </CardHeader>
@@ -112,7 +133,9 @@ export default async function TemplatesPage() {
                   {/* System */}
                   {template.system && (
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">ระบบ:</span>
+                      <span className="text-sm text-muted-foreground">
+                        ระบบ:
+                      </span>
                       <Badge variant="secondary">{template.system.name}</Badge>
                     </div>
                   )}
@@ -128,13 +151,17 @@ export default async function TemplatesPage() {
                     {template.startingCapital && (
                       <div>
                         <span className="text-muted-foreground">Capital: </span>
-                        <span className="font-medium">${template.startingCapital.toLocaleString()}</span>
+                        <span className="font-medium">
+                          ${template.startingCapital.toLocaleString()}
+                        </span>
                       </div>
                     )}
                     {template.dataSource && (
                       <div>
                         <span className="text-muted-foreground">Source: </span>
-                        <span className="font-medium">{template.dataSource}</span>
+                        <span className="font-medium">
+                          {template.dataSource}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -144,7 +171,7 @@ export default async function TemplatesPage() {
                     <span className="text-xs text-muted-foreground">
                       ใช้งาน {template.usageCount} ครั้ง
                     </span>
-                    <Link href={`/backtests/new?templateId=${template.id}`}>
+                    <Link href={`/backtests/create?templateId=${template.id}`}>
                       <Button size="sm" variant="outline">
                         <Copy className="h-3 w-3 mr-1" />
                         ใช้ Template
@@ -158,5 +185,5 @@ export default async function TemplatesPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

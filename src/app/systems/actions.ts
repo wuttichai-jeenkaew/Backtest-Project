@@ -13,10 +13,15 @@ export async function createSystem(formData: FormData) {
     const timeframe = formData.get("timeframe") as string | null;
     const entryRules = formData.get("entryRules") as string | null;
     const exitRules = formData.get("exitRules") as string | null;
+    const riskPerTradeStr = formData.get("riskPerTrade") as string | null;
+    const defaultRRStr = formData.get("defaultRR") as string | null;
 
     if (!name || !name.trim()) {
       throw new Error("System name is required");
     }
+
+    const riskPerTrade = riskPerTradeStr ? parseFloat(riskPerTradeStr) : null;
+    const defaultRR = defaultRRStr ? parseFloat(defaultRRStr) : null;
 
     await prisma.tradingSystem.create({
       data: {
@@ -27,6 +32,8 @@ export async function createSystem(formData: FormData) {
         timeframe: timeframe || null,
         entryRules: entryRules || null,
         exitRules: exitRules || null,
+        riskPerTrade,
+        defaultRR,
       },
     });
 
@@ -50,11 +57,16 @@ export async function updateSystem(id: string, formData: FormData) {
     const timeframe = formData.get("timeframe") as string | null;
     const entryRules = formData.get("entryRules") as string | null;
     const exitRules = formData.get("exitRules") as string | null;
+    const riskPerTradeStr = formData.get("riskPerTrade") as string | null;
+    const defaultRRStr = formData.get("defaultRR") as string | null;
     const isActive = formData.get("isActive") === "true";
 
     if (!name || !name.trim()) {
       throw new Error("System name is required");
     }
+
+    const riskPerTrade = riskPerTradeStr ? parseFloat(riskPerTradeStr) : null;
+    const defaultRR = defaultRRStr ? parseFloat(defaultRRStr) : null;
 
     await prisma.tradingSystem.update({
       where: { id },
@@ -66,6 +78,8 @@ export async function updateSystem(id: string, formData: FormData) {
         timeframe: timeframe || null,
         entryRules: entryRules || null,
         exitRules: exitRules || null,
+        riskPerTrade,
+        defaultRR,
         isActive,
       },
     });
@@ -91,7 +105,9 @@ export async function deleteSystem(id: string) {
     revalidatePath("/systems");
     revalidatePath("/");
   } catch {
-    throw new Error("Failed to delete system. It may have associated backtests.");
+    throw new Error(
+      "Failed to delete system. It may have associated backtests."
+    );
   }
 }
 
@@ -107,12 +123,19 @@ export async function duplicateSystem(id: string) {
 
     // Create a copy with "(Copy)" appended to name
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...data } = original;
+    const {
+      id: _id,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      ...data
+    } = original;
 
     // Find unique name
     let newName = `${original.name} (Copy)`;
     let counter = 1;
-    while (await prisma.tradingSystem.findUnique({ where: { name: newName } })) {
+    while (
+      await prisma.tradingSystem.findUnique({ where: { name: newName } })
+    ) {
       counter++;
       newName = `${original.name} (Copy ${counter})`;
     }

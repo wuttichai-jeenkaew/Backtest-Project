@@ -120,7 +120,9 @@ export function BacktestForm({
                 name="startDate"
                 type="date"
                 required
-                defaultValue={initialData ? formatDate(initialData.startDate) : ""}
+                defaultValue={
+                  initialData ? formatDate(initialData.startDate) : ""
+                }
               />
             </div>
 
@@ -131,7 +133,9 @@ export function BacktestForm({
                 name="endDate"
                 type="date"
                 required
-                defaultValue={initialData ? formatDate(initialData.endDate) : ""}
+                defaultValue={
+                  initialData ? formatDate(initialData.endDate) : ""
+                }
               />
             </div>
           </div>
@@ -154,56 +158,62 @@ export function BacktestForm({
           <CardTitle>Capital & Profit/Loss</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="startingCapital">Starting Capital *</Label>
-              <Input
-                id="startingCapital"
-                name="startingCapital"
-                type="number"
-                step="0.01"
-                required
-                placeholder="10000"
-                defaultValue={initialData?.startingCapital}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="endingCapital">Ending Capital *</Label>
-              <Input
-                id="endingCapital"
-                name="endingCapital"
-                type="number"
-                step="0.01"
-                required
-                placeholder="12500"
-                defaultValue={initialData?.endingCapital}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="startingCapital">Starting Capital *</Label>
+            <Input
+              id="startingCapital"
+              name="startingCapital"
+              type="number"
+              step="0.01"
+              required
+              placeholder="10000"
+              defaultValue={initialData?.startingCapital}
+            />
+            <p className="text-xs text-muted-foreground">
+              Ending Capital จะถูกคำนวณอัตโนมัติจาก Gross Profit/Loss
+            </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="grossProfit">Gross Profit</Label>
+              <Label htmlFor="grossProfitPercent">Gross Profit (%)</Label>
               <Input
-                id="grossProfit"
-                name="grossProfit"
+                id="grossProfitPercent"
+                name="grossProfitPercent"
                 type="number"
                 step="0.01"
-                placeholder="Sum of winning trades"
-                defaultValue={initialData?.grossProfit ?? ""}
+                placeholder="e.g., 25.5 (เป็น % ของ Starting Capital)"
+                defaultValue={
+                  initialData?.grossProfit && initialData?.startingCapital
+                    ? (
+                        (initialData.grossProfit /
+                          initialData.startingCapital) *
+                        100
+                      ).toFixed(2)
+                    : ""
+                }
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="grossLoss">Gross Loss (absolute value)</Label>
+              <Label htmlFor="grossLossPercent">
+                Gross Loss (%, absolute value)
+              </Label>
               <Input
-                id="grossLoss"
-                name="grossLoss"
+                id="grossLossPercent"
+                name="grossLossPercent"
                 type="number"
                 step="0.01"
-                placeholder="Sum of losing trades"
-                defaultValue={initialData?.grossLoss ?? ""}
+                placeholder="e.g., 10.5 (เป็น % ของ Starting Capital)"
+                defaultValue={
+                  initialData?.grossLoss && initialData?.startingCapital
+                    ? (
+                        (Math.abs(initialData.grossLoss) /
+                          initialData.startingCapital) *
+                        100
+                      ).toFixed(2)
+                    : ""
+                }
               />
             </div>
           </div>
@@ -256,52 +266,82 @@ export function BacktestForm({
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="averageWin">Average Win ($)</Label>
+              <Label htmlFor="averageWinPercent">Average Win (%)</Label>
               <Input
-                id="averageWin"
-                name="averageWin"
+                id="averageWinPercent"
+                name="averageWinPercent"
                 type="number"
                 step="0.01"
-                placeholder="Average profit per winning trade"
-                defaultValue={initialData?.averageWin ?? ""}
+                placeholder="e.g., 2.5 (% ของ Starting Capital)"
+                defaultValue={
+                  initialData?.averageWin && initialData?.startingCapital
+                    ? (
+                        (initialData.averageWin / initialData.startingCapital) *
+                        100
+                      ).toFixed(2)
+                    : ""
+                }
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="averageLoss">Average Loss ($)</Label>
+              <Label htmlFor="averageLossPercent">Average Loss (%)</Label>
               <Input
-                id="averageLoss"
-                name="averageLoss"
+                id="averageLossPercent"
+                name="averageLossPercent"
                 type="number"
                 step="0.01"
-                placeholder="Average loss per losing trade"
-                defaultValue={initialData?.averageLoss ?? ""}
+                placeholder="e.g., 1.0 (% ของ Starting Capital)"
+                defaultValue={
+                  initialData?.averageLoss && initialData?.startingCapital
+                    ? (
+                        (Math.abs(initialData.averageLoss) /
+                          initialData.startingCapital) *
+                        100
+                      ).toFixed(2)
+                    : ""
+                }
               />
             </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="largestWin">Largest Win ($)</Label>
+              <Label htmlFor="largestWinPercent">Largest Win (%)</Label>
               <Input
-                id="largestWin"
-                name="largestWin"
+                id="largestWinPercent"
+                name="largestWinPercent"
                 type="number"
                 step="0.01"
-                placeholder="Best single trade"
-                defaultValue={initialData?.largestWin ?? ""}
+                placeholder="e.g., 5.0 (% ของ Starting Capital)"
+                defaultValue={
+                  initialData?.largestWin && initialData?.startingCapital
+                    ? (
+                        (initialData.largestWin / initialData.startingCapital) *
+                        100
+                      ).toFixed(2)
+                    : ""
+                }
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="largestLoss">Largest Loss ($)</Label>
+              <Label htmlFor="largestLossPercent">Largest Loss (%)</Label>
               <Input
-                id="largestLoss"
-                name="largestLoss"
+                id="largestLossPercent"
+                name="largestLossPercent"
                 type="number"
                 step="0.01"
-                placeholder="Worst single trade"
-                defaultValue={initialData?.largestLoss ?? ""}
+                placeholder="e.g., 3.0 (% ของ Starting Capital)"
+                defaultValue={
+                  initialData?.largestLoss && initialData?.startingCapital
+                    ? (
+                        (Math.abs(initialData.largestLoss) /
+                          initialData.startingCapital) *
+                        100
+                      ).toFixed(2)
+                    : ""
+                }
               />
             </div>
           </div>
@@ -319,7 +359,9 @@ export function BacktestForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="maxConsecutiveLosses">Max Consecutive Losses</Label>
+              <Label htmlFor="maxConsecutiveLosses">
+                Max Consecutive Losses
+              </Label>
               <Input
                 id="maxConsecutiveLosses"
                 name="maxConsecutiveLosses"
@@ -338,42 +380,19 @@ export function BacktestForm({
           <CardTitle>Risk Metrics</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="maxDrawdown">Max Drawdown ($)</Label>
-              <Input
-                id="maxDrawdown"
-                name="maxDrawdown"
-                type="number"
-                step="0.01"
-                placeholder="Peak to trough decline"
-                defaultValue={initialData?.maxDrawdown ?? ""}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="maxDrawdownPercent">Max Drawdown (%)</Label>
-              <Input
-                id="maxDrawdownPercent"
-                name="maxDrawdownPercent"
-                type="number"
-                step="0.01"
-                placeholder="e.g., 15.5"
-                defaultValue={initialData?.maxDrawdownPercent ?? ""}
-              />
-            </div>
-          </div>
-
           <div className="space-y-2">
-            <Label htmlFor="sharpeRatio">Sharpe Ratio</Label>
+            <Label htmlFor="maxDrawdownPercent">Max Drawdown (%)</Label>
             <Input
-              id="sharpeRatio"
-              name="sharpeRatio"
+              id="maxDrawdownPercent"
+              name="maxDrawdownPercent"
               type="number"
               step="0.01"
-              placeholder="Risk-adjusted return"
-              defaultValue={initialData?.sharpeRatio ?? ""}
+              placeholder="e.g., 15.5"
+              defaultValue={initialData?.maxDrawdownPercent ?? ""}
             />
+            <p className="text-xs text-muted-foreground">
+              Max Drawdown ($) จะถูกคำนวณอัตโนมัติจาก % และ Starting Capital
+            </p>
           </div>
         </CardContent>
       </Card>

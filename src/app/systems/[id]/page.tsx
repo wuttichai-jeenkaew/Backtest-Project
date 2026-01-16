@@ -40,7 +40,9 @@ async function getSystem(id: string) {
   });
 }
 
-export default async function SystemDetailPage({ params }: SystemDetailPageProps) {
+export default async function SystemDetailPage({
+  params,
+}: SystemDetailPageProps) {
   const { id } = await params;
   const system = await getSystem(id);
 
@@ -61,8 +63,10 @@ export default async function SystemDetailPage({ params }: SystemDetailPageProps
       : 0;
   const avgProfitFactor =
     totalBacktests > 0
-      ? system.backtests.reduce((sum, bt) => sum + Number(bt.profitFactor || 0), 0) /
-        totalBacktests
+      ? system.backtests.reduce(
+          (sum, bt) => sum + Number(bt.profitFactor || 0),
+          0
+        ) / totalBacktests
       : 0;
 
   return (
@@ -72,7 +76,7 @@ export default async function SystemDetailPage({ params }: SystemDetailPageProps
         {/* Actions */}
         <div className="flex gap-2 flex-wrap">
           <Button asChild>
-            <Link href={`/backtests/new?systemId=${system.id}`}>
+            <Link href={`/backtests/create?systemId=${system.id}`}>
               <Plus className="mr-2 h-4 w-4" />
               New Backtest
             </Link>
@@ -102,7 +106,9 @@ export default async function SystemDetailPage({ params }: SystemDetailPageProps
             <CardContent className="space-y-4">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Type</span>
-                <Badge variant="secondary">{system.type.replace("_", " ")}</Badge>
+                <Badge variant="secondary">
+                  {system.type.replace("_", " ")}
+                </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Asset Class</span>
@@ -127,7 +133,9 @@ export default async function SystemDetailPage({ params }: SystemDetailPageProps
               </div>
               {system.description && (
                 <div className="pt-4 border-t">
-                  <p className="text-sm text-muted-foreground mb-2">Description</p>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Description
+                  </p>
                   <p className="text-sm">{system.description}</p>
                 </div>
               )}
@@ -159,7 +167,9 @@ export default async function SystemDetailPage({ params }: SystemDetailPageProps
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Avg Profit Factor</span>
-                <span className="font-medium">{avgProfitFactor.toFixed(2)}</span>
+                <span className="font-medium">
+                  {avgProfitFactor.toFixed(2)}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -261,7 +271,7 @@ export default async function SystemDetailPage({ params }: SystemDetailPageProps
               <div className="p-6 text-center text-muted-foreground">
                 No backtests yet.{" "}
                 <Link
-                  href={`/backtests/new?systemId=${system.id}`}
+                  href={`/backtests/create?systemId=${system.id}`}
                   className="underline"
                 >
                   Add one

@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/header";
 import { SystemForm } from "@/components/forms/system-form";
 import prisma from "@/lib/prisma";
 import { updateSystem } from "../../actions";
+import { serializeSystem } from "@/lib/serialize";
 
 interface EditSystemPageProps {
   params: Promise<{ id: string }>;
@@ -29,13 +30,16 @@ export default async function EditSystemPage({ params }: EditSystemPageProps) {
     redirect(`/systems/${id}`);
   }
 
+  // Serialize Decimal fields for Client Component
+  const serializedSystem = serializeSystem(system);
+
   return (
     <>
       <Header title={`Edit: ${system.name}`} />
       <div className="flex flex-1 flex-col gap-4 p-4 max-w-3xl">
         <SystemForm
           action={handleUpdate}
-          initialData={system}
+          initialData={serializedSystem}
           submitLabel="Update System"
         />
       </div>

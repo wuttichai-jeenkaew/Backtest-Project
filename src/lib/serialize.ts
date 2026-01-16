@@ -3,7 +3,9 @@ import { Decimal } from "@prisma/client/runtime/library";
 /**
  * Convert Prisma Decimal to number for Client Component serialization
  */
-export function toNumber(value: Decimal | number | null | undefined): number | null {
+export function toNumber(
+  value: Decimal | number | null | undefined
+): number | null {
   if (value === null || value === undefined) return null;
   return typeof value === "number" ? value : Number(value);
 }
@@ -12,9 +14,11 @@ export function toNumber(value: Decimal | number | null | undefined): number | n
  * Serialize a backtest result for passing to Client Components
  * Converts all Decimal fields to numbers
  */
-export function serializeBacktest<T extends Record<string, unknown>>(backtest: T): T {
+export function serializeBacktest<T extends Record<string, unknown>>(
+  backtest: T
+): T {
   const serialized: Record<string, unknown> = { ...backtest };
-  
+
   // List of Decimal fields that need conversion
   const decimalFields = [
     "startingCapital",
@@ -43,7 +47,11 @@ export function serializeBacktest<T extends Record<string, unknown>>(backtest: T
   ];
 
   for (const field of decimalFields) {
-    if (field in serialized && serialized[field] !== null && serialized[field] !== undefined) {
+    if (
+      field in serialized &&
+      serialized[field] !== null &&
+      serialized[field] !== undefined
+    ) {
       serialized[field] = Number(serialized[field]);
     }
   }
@@ -54,6 +62,41 @@ export function serializeBacktest<T extends Record<string, unknown>>(backtest: T
 /**
  * Serialize an array of backtest results
  */
-export function serializeBacktests<T extends Record<string, unknown>>(backtests: T[]): T[] {
+export function serializeBacktests<T extends Record<string, unknown>>(
+  backtests: T[]
+): T[] {
   return backtests.map(serializeBacktest);
+}
+
+/**
+ * Serialize a TradingSystem for passing to Client Components
+ * Converts Decimal fields (riskPerTrade, defaultRR) to numbers
+ */
+export function serializeSystem<T extends Record<string, unknown>>(
+  system: T
+): T {
+  const serialized: Record<string, unknown> = { ...system };
+
+  const decimalFields = ["riskPerTrade", "defaultRR"];
+
+  for (const field of decimalFields) {
+    if (
+      field in serialized &&
+      serialized[field] !== null &&
+      serialized[field] !== undefined
+    ) {
+      serialized[field] = Number(serialized[field]);
+    }
+  }
+
+  return serialized as T;
+}
+
+/**
+ * Serialize an array of TradingSystem for Client Components
+ */
+export function serializeSystems<T extends Record<string, unknown>>(
+  systems: T[]
+): T[] {
+  return systems.map(serializeSystem);
 }

@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { JournalForm } from "@/components/forms/journal-form";
 import { updateJournalEntry } from "../../actions";
+import { serializeSystems } from "@/lib/serialize";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -31,6 +32,9 @@ export default async function EditJournalPage({ params }: Props) {
   const systems = await prisma.tradingSystem.findMany({
     orderBy: { name: "asc" },
   });
+
+  // Serialize Decimal fields for Client Component
+  const serializedSystems = serializeSystems(systems);
 
   async function handleUpdate(formData: FormData) {
     "use server";
@@ -68,7 +72,7 @@ export default async function EditJournalPage({ params }: Props) {
       <h1 className="text-3xl font-bold mb-6">Edit Journal Entry</h1>
       <JournalForm
         action={handleUpdate}
-        systems={systems}
+        systems={serializedSystems}
         initialData={initialData}
         submitLabel="Update Entry"
       />

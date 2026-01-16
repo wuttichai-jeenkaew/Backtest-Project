@@ -10,8 +10,9 @@ export async function createBacktest(formData: FormData) {
     const symbol = formData.get("symbol") as string;
     const startDate = new Date(formData.get("startDate") as string);
     const endDate = new Date(formData.get("endDate") as string);
-    const startingCapital = parseFloat(formData.get("startingCapital") as string);
-    const endingCapital = parseFloat(formData.get("endingCapital") as string);
+    const startingCapital = parseFloat(
+      formData.get("startingCapital") as string
+    );
     const totalTrades = parseInt(formData.get("totalTrades") as string);
     const winningTrades = parseInt(formData.get("winningTrades") as string);
     const losingTrades = parseInt(formData.get("losingTrades") as string);
@@ -19,43 +20,67 @@ export async function createBacktest(formData: FormData) {
     // Validation
     if (!tradingSystemId) throw new Error("Trading system is required");
     if (!symbol || !symbol.trim()) throw new Error("Symbol is required");
-    if (isNaN(startingCapital) || startingCapital <= 0) throw new Error("Starting capital must be greater than 0");
-    if (isNaN(endingCapital)) throw new Error("Ending capital is required");
-    if (isNaN(totalTrades) || totalTrades < 0) throw new Error("Total trades must be 0 or greater");
+    if (isNaN(startingCapital) || startingCapital <= 0)
+      throw new Error("Starting capital must be greater than 0");
+    if (isNaN(totalTrades) || totalTrades < 0)
+      throw new Error("Total trades must be 0 or greater");
 
-    // Calculate derived values
-    const netProfit = endingCapital - startingCapital;
-    const netProfitPercent = startingCapital > 0 ? (netProfit / startingCapital) * 100 : 0;
+    // Helper function to convert % to $ amount
+    const percentToAmount = (percentValue: string | null): number | null => {
+      if (!percentValue) return null;
+      const percent = parseFloat(percentValue);
+      if (isNaN(percent)) return null;
+      return (percent / 100) * startingCapital;
+    };
+
+    // Get percentage values from form
+    const grossProfitPercent = formData.get("grossProfitPercent") as
+      | string
+      | null;
+    const grossLossPercent = formData.get("grossLossPercent") as string | null;
+    const averageWinPercent = formData.get("averageWinPercent") as
+      | string
+      | null;
+    const averageLossPercent = formData.get("averageLossPercent") as
+      | string
+      | null;
+    const largestWinPercent = formData.get("largestWinPercent") as
+      | string
+      | null;
+    const largestLossPercent = formData.get("largestLossPercent") as
+      | string
+      | null;
+    const maxDrawdownPercentStr = formData.get("maxDrawdownPercent") as
+      | string
+      | null;
+
+    // Convert % to $ amounts
+    const grossProfit = percentToAmount(grossProfitPercent);
+    const grossLoss = percentToAmount(grossLossPercent);
+    const averageWin = percentToAmount(averageWinPercent);
+    const averageLoss = percentToAmount(averageLossPercent);
+    const largestWin = percentToAmount(largestWinPercent);
+    const largestLoss = percentToAmount(largestLossPercent);
+    const maxDrawdownPercent = maxDrawdownPercentStr
+      ? parseFloat(maxDrawdownPercentStr)
+      : null;
+    const maxDrawdown = maxDrawdownPercent
+      ? (maxDrawdownPercent / 100) * startingCapital
+      : null;
+
+    // Calculate net profit from gross profit and loss percentages
+    const grossProfitPct = grossProfitPercent
+      ? parseFloat(grossProfitPercent)
+      : 0;
+    const grossLossPct = grossLossPercent ? parseFloat(grossLossPercent) : 0;
+    const netProfitPercent = grossProfitPct - grossLossPct;
+    const netProfit = (netProfitPercent / 100) * startingCapital;
+    const endingCapital = startingCapital + netProfit;
+
+    // Calculate win rate
     const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
 
-    // Optional fields
-    const grossProfit = formData.get("grossProfit")
-      ? parseFloat(formData.get("grossProfit") as string)
-      : null;
-    const grossLoss = formData.get("grossLoss")
-      ? parseFloat(formData.get("grossLoss") as string)
-      : null;
-    const maxDrawdown = formData.get("maxDrawdown")
-      ? parseFloat(formData.get("maxDrawdown") as string)
-      : null;
-    const maxDrawdownPercent = formData.get("maxDrawdownPercent")
-      ? parseFloat(formData.get("maxDrawdownPercent") as string)
-      : null;
-    const sharpeRatio = formData.get("sharpeRatio")
-      ? parseFloat(formData.get("sharpeRatio") as string)
-      : null;
-    const averageWin = formData.get("averageWin")
-      ? parseFloat(formData.get("averageWin") as string)
-      : null;
-    const averageLoss = formData.get("averageLoss")
-      ? parseFloat(formData.get("averageLoss") as string)
-      : null;
-    const largestWin = formData.get("largestWin")
-      ? parseFloat(formData.get("largestWin") as string)
-      : null;
-    const largestLoss = formData.get("largestLoss")
-      ? parseFloat(formData.get("largestLoss") as string)
-      : null;
+    // Other optional fields
     const maxConsecutiveWins = formData.get("maxConsecutiveWins")
       ? parseInt(formData.get("maxConsecutiveWins") as string)
       : null;
@@ -67,12 +92,15 @@ export async function createBacktest(formData: FormData) {
 
     // Calculate profit factor
     const profitFactor =
-      grossProfit && grossLoss && grossLoss > 0 ? grossProfit / grossLoss : null;
+      grossProfit && grossLoss && grossLoss > 0
+        ? grossProfit / grossLoss
+        : null;
 
     // Calculate expectancy
     const expectancy =
       averageWin && averageLoss && winRate
-        ? (winRate / 100) * averageWin - ((100 - winRate) / 100) * Math.abs(averageLoss)
+        ? (winRate / 100) * averageWin -
+          ((100 - winRate) / 100) * Math.abs(averageLoss)
         : null;
 
     const backtest = await prisma.backtestResult.create({
@@ -90,7 +118,7 @@ export async function createBacktest(formData: FormData) {
         grossLoss,
         maxDrawdown,
         maxDrawdownPercent,
-        sharpeRatio,
+        sharpeRatio: null, // Will be calculated separately
         profitFactor,
         totalTrades,
         winningTrades,
@@ -127,8 +155,9 @@ export async function updateBacktest(id: string, formData: FormData) {
     const symbol = formData.get("symbol") as string;
     const startDate = new Date(formData.get("startDate") as string);
     const endDate = new Date(formData.get("endDate") as string);
-    const startingCapital = parseFloat(formData.get("startingCapital") as string);
-    const endingCapital = parseFloat(formData.get("endingCapital") as string);
+    const startingCapital = parseFloat(
+      formData.get("startingCapital") as string
+    );
     const totalTrades = parseInt(formData.get("totalTrades") as string);
     const winningTrades = parseInt(formData.get("winningTrades") as string);
     const losingTrades = parseInt(formData.get("losingTrades") as string);
@@ -136,41 +165,67 @@ export async function updateBacktest(id: string, formData: FormData) {
     // Validation
     if (!tradingSystemId) throw new Error("Trading system is required");
     if (!symbol || !symbol.trim()) throw new Error("Symbol is required");
-    if (isNaN(startingCapital) || startingCapital <= 0) throw new Error("Starting capital must be greater than 0");
-    if (isNaN(endingCapital)) throw new Error("Ending capital is required");
-    if (isNaN(totalTrades) || totalTrades < 0) throw new Error("Total trades must be 0 or greater");
+    if (isNaN(startingCapital) || startingCapital <= 0)
+      throw new Error("Starting capital must be greater than 0");
+    if (isNaN(totalTrades) || totalTrades < 0)
+      throw new Error("Total trades must be 0 or greater");
 
-    const netProfit = endingCapital - startingCapital;
-    const netProfitPercent = startingCapital > 0 ? (netProfit / startingCapital) * 100 : 0;
+    // Helper function to convert % to $ amount
+    const percentToAmount = (percentValue: string | null): number | null => {
+      if (!percentValue) return null;
+      const percent = parseFloat(percentValue);
+      if (isNaN(percent)) return null;
+      return (percent / 100) * startingCapital;
+    };
+
+    // Get percentage values from form
+    const grossProfitPercent = formData.get("grossProfitPercent") as
+      | string
+      | null;
+    const grossLossPercent = formData.get("grossLossPercent") as string | null;
+    const averageWinPercent = formData.get("averageWinPercent") as
+      | string
+      | null;
+    const averageLossPercent = formData.get("averageLossPercent") as
+      | string
+      | null;
+    const largestWinPercent = formData.get("largestWinPercent") as
+      | string
+      | null;
+    const largestLossPercent = formData.get("largestLossPercent") as
+      | string
+      | null;
+    const maxDrawdownPercentStr = formData.get("maxDrawdownPercent") as
+      | string
+      | null;
+
+    // Convert % to $ amounts
+    const grossProfit = percentToAmount(grossProfitPercent);
+    const grossLoss = percentToAmount(grossLossPercent);
+    const averageWin = percentToAmount(averageWinPercent);
+    const averageLoss = percentToAmount(averageLossPercent);
+    const largestWin = percentToAmount(largestWinPercent);
+    const largestLoss = percentToAmount(largestLossPercent);
+    const maxDrawdownPercent = maxDrawdownPercentStr
+      ? parseFloat(maxDrawdownPercentStr)
+      : null;
+    const maxDrawdown = maxDrawdownPercent
+      ? (maxDrawdownPercent / 100) * startingCapital
+      : null;
+
+    // Calculate net profit from gross profit and loss percentages
+    const grossProfitPct = grossProfitPercent
+      ? parseFloat(grossProfitPercent)
+      : 0;
+    const grossLossPct = grossLossPercent ? parseFloat(grossLossPercent) : 0;
+    const netProfitPercent = grossProfitPct - grossLossPct;
+    const netProfit = (netProfitPercent / 100) * startingCapital;
+    const endingCapital = startingCapital + netProfit;
+
+    // Calculate win rate
     const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
 
-    const grossProfit = formData.get("grossProfit")
-      ? parseFloat(formData.get("grossProfit") as string)
-      : null;
-    const grossLoss = formData.get("grossLoss")
-      ? parseFloat(formData.get("grossLoss") as string)
-      : null;
-    const maxDrawdown = formData.get("maxDrawdown")
-      ? parseFloat(formData.get("maxDrawdown") as string)
-      : null;
-    const maxDrawdownPercent = formData.get("maxDrawdownPercent")
-      ? parseFloat(formData.get("maxDrawdownPercent") as string)
-      : null;
-    const sharpeRatio = formData.get("sharpeRatio")
-      ? parseFloat(formData.get("sharpeRatio") as string)
-      : null;
-    const averageWin = formData.get("averageWin")
-      ? parseFloat(formData.get("averageWin") as string)
-      : null;
-    const averageLoss = formData.get("averageLoss")
-      ? parseFloat(formData.get("averageLoss") as string)
-      : null;
-    const largestWin = formData.get("largestWin")
-      ? parseFloat(formData.get("largestWin") as string)
-      : null;
-    const largestLoss = formData.get("largestLoss")
-      ? parseFloat(formData.get("largestLoss") as string)
-      : null;
+    // Other optional fields
     const maxConsecutiveWins = formData.get("maxConsecutiveWins")
       ? parseInt(formData.get("maxConsecutiveWins") as string)
       : null;
@@ -180,13 +235,24 @@ export async function updateBacktest(id: string, formData: FormData) {
     const notes = formData.get("notes") as string | null;
     const dataSource = formData.get("dataSource") as string | null;
 
+    // Calculate profit factor
     const profitFactor =
-      grossProfit && grossLoss && grossLoss > 0 ? grossProfit / grossLoss : null;
+      grossProfit && grossLoss && grossLoss > 0
+        ? grossProfit / grossLoss
+        : null;
 
+    // Calculate expectancy
     const expectancy =
       averageWin && averageLoss && winRate
-        ? (winRate / 100) * averageWin - ((100 - winRate) / 100) * Math.abs(averageLoss)
+        ? (winRate / 100) * averageWin -
+          ((100 - winRate) / 100) * Math.abs(averageLoss)
         : null;
+
+    // Get existing sharpe ratio to preserve it
+    const existingBacktest = await prisma.backtestResult.findUnique({
+      where: { id },
+      select: { sharpeRatio: true },
+    });
 
     await prisma.backtestResult.update({
       where: { id },
@@ -204,7 +270,7 @@ export async function updateBacktest(id: string, formData: FormData) {
         grossLoss,
         maxDrawdown,
         maxDrawdownPercent,
-        sharpeRatio,
+        sharpeRatio: existingBacktest?.sharpeRatio ?? null, // Preserve existing value
         profitFactor,
         totalTrades,
         winningTrades,
@@ -265,10 +331,14 @@ interface EquityPointInput {
   drawdown?: number | null;
 }
 
-export async function addEquityPoints(backtestId: string, points: EquityPointInput[]) {
+export async function addEquityPoints(
+  backtestId: string,
+  points: EquityPointInput[]
+) {
   try {
     if (!backtestId) throw new Error("Backtest ID is required");
-    if (!points || points.length === 0) throw new Error("At least one equity point is required");
+    if (!points || points.length === 0)
+      throw new Error("At least one equity point is required");
 
     await prisma.equityPoint.createMany({
       data: points.map((p) => ({
@@ -310,10 +380,14 @@ interface MonthlyReturnInput {
   trades?: number | null;
 }
 
-export async function addMonthlyReturns(backtestId: string, returns: MonthlyReturnInput[]) {
+export async function addMonthlyReturns(
+  backtestId: string,
+  returns: MonthlyReturnInput[]
+) {
   try {
     if (!backtestId) throw new Error("Backtest ID is required");
-    if (!returns || returns.length === 0) throw new Error("At least one monthly return is required");
+    if (!returns || returns.length === 0)
+      throw new Error("At least one monthly return is required");
 
     // Delete existing returns for the same year/month combinations to allow updates
     for (const r of returns) {
@@ -360,6 +434,303 @@ export async function deleteMonthlyReturns(backtestId: string) {
 
 // ============== Duplicate Backtest ==============
 
+// ============== Calculate Sharpe Ratio ==============
+
+export async function calculateSharpeRatioAction(backtestId: string) {
+  try {
+    if (!backtestId) throw new Error("Backtest ID is required");
+
+    const { calculateBestSharpeRatio } = await import("@/lib/calculations");
+
+    const backtest = await prisma.backtestResult.findUnique({
+      where: { id: backtestId },
+      include: {
+        equityCurve: {
+          orderBy: { date: "asc" },
+        },
+        monthlyReturns: {
+          orderBy: [{ year: "asc" }, { month: "asc" }],
+        },
+      },
+    });
+
+    if (!backtest) {
+      throw new Error("Backtest not found");
+    }
+
+    // Calculate period days
+    const startDate = new Date(backtest.startDate);
+    const endDate = new Date(backtest.endDate);
+    const periodDays = Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    // Get the best Sharpe Ratio calculation
+    const { sharpeRatio, method } = calculateBestSharpeRatio(
+      backtest.monthlyReturns,
+      backtest.equityCurve,
+      backtest.netProfitPercent ? Number(backtest.netProfitPercent) : undefined,
+      periodDays,
+      backtest.maxDrawdownPercent
+        ? Number(backtest.maxDrawdownPercent)
+        : undefined
+    );
+
+    if (sharpeRatio === null) {
+      throw new Error(
+        "Unable to calculate Sharpe Ratio. Please add monthly returns or equity curve data first."
+      );
+    }
+
+    // Update the backtest with the calculated Sharpe Ratio
+    await prisma.backtestResult.update({
+      where: { id: backtestId },
+      data: {
+        sharpeRatio: sharpeRatio,
+      },
+    });
+
+    revalidatePath(`/backtests/${backtestId}`);
+    revalidatePath("/backtests");
+    revalidatePath("/");
+
+    return {
+      sharpeRatio: Number(sharpeRatio.toFixed(4)),
+      method,
+    };
+  } catch (error: unknown) {
+    const err = error as { message?: string };
+    throw new Error(err.message || "Failed to calculate Sharpe Ratio");
+  }
+}
+
+// ============== Calculate Profit Consistency ==============
+
+export async function calculateProfitConsistencyAction(
+  backtestId: string,
+  threshold: number = 20,
+  riskPerTrade?: number // Optional: if provided, use R-Multiple × Risk
+) {
+  try {
+    if (!backtestId) throw new Error("Backtest ID is required");
+
+    const { calculateProfitConsistency } = await import("@/lib/calculations");
+
+    // Fetch trade journal entries linked to this backtest
+    const journalEntries = await prisma.tradeJournalEntry.findMany({
+      where: { backtestId },
+      orderBy: { entryDate: "asc" },
+      select: {
+        id: true,
+        entryDate: true,
+        pnl: true,
+        rMultiple: true,
+      },
+    });
+
+    if (journalEntries.length < 2) {
+      return {
+        consistencyPercent: null,
+        passed: false,
+        bestDayProfit: 0,
+        bestDayDate: null,
+        totalProfit: 0,
+        profitableDays: 0,
+        losingDays: 0,
+        threshold,
+        message: `ต้องมี Trade Journal อย่างน้อย 2 รายการ (ปัจจุบันมี ${journalEntries.length} รายการ)`,
+        method: riskPerTrade ? "r_multiple" : "trade_journal",
+        tradesCount: journalEntries.length,
+        riskPerTrade,
+      };
+    }
+
+    let dailyPnL: { date: string; pnl: number }[];
+    let method: string;
+
+    if (riskPerTrade && riskPerTrade > 0) {
+      // Method 2: Use R-Multiple × Risk per Trade
+      dailyPnL = journalEntries
+        .filter((entry) => entry.rMultiple !== null)
+        .map((entry) => ({
+          date: entry.entryDate.toISOString().split("T")[0],
+          pnl: Number(entry.rMultiple) * riskPerTrade,
+        }));
+      method = "r_multiple";
+
+      if (dailyPnL.length < 2) {
+        // Fallback to P/L if not enough R-Multiple data
+        dailyPnL = journalEntries
+          .filter((entry) => entry.pnl !== null)
+          .map((entry) => ({
+            date: entry.entryDate.toISOString().split("T")[0],
+            pnl: Number(entry.pnl),
+          }));
+        method = "trade_journal";
+      }
+    } else {
+      // Method 1: Use P/L directly
+      dailyPnL = journalEntries
+        .filter((entry) => entry.pnl !== null)
+        .map((entry) => ({
+          date: entry.entryDate.toISOString().split("T")[0],
+          pnl: Number(entry.pnl),
+        }));
+      method = "trade_journal";
+    }
+
+    if (dailyPnL.length < 2) {
+      return {
+        consistencyPercent: null,
+        passed: false,
+        bestDayProfit: 0,
+        bestDayDate: null,
+        totalProfit: 0,
+        profitableDays: 0,
+        losingDays: 0,
+        threshold,
+        message: riskPerTrade
+          ? `ต้องมี Trade ที่มี R-Multiple อย่างน้อย 2 รายการ`
+          : `ต้องมี Trade ที่มี P/L อย่างน้อย 2 รายการ`,
+        method,
+        tradesCount: journalEntries.length,
+        riskPerTrade,
+      };
+    }
+
+    // Calculate profit consistency
+    const result = calculateProfitConsistency(dailyPnL, threshold);
+
+    revalidatePath(`/backtests/${backtestId}`);
+
+    return {
+      ...result,
+      method,
+      tradesCount: dailyPnL.length,
+      riskPerTrade,
+    };
+  } catch (error: unknown) {
+    const err = error as { message?: string };
+    throw new Error(err.message || "Failed to calculate Profit Consistency");
+  }
+}
+
+// ============== Calculate Profit Consistency from Backtest Stats ==============
+
+export async function calculateProfitConsistencyFromStatsAction(
+  backtestId: string,
+  riskPercent: number,
+  rrRatio: number,
+  threshold: number = 20
+) {
+  try {
+    if (!backtestId) throw new Error("Backtest ID is required");
+    if (riskPercent <= 0) throw new Error("Risk % must be greater than 0");
+    if (rrRatio <= 0) throw new Error("RR Ratio must be greater than 0");
+
+    // Fetch backtest stats
+    const backtest = await prisma.backtestResult.findUnique({
+      where: { id: backtestId },
+      select: {
+        winningTrades: true,
+        losingTrades: true,
+        totalTrades: true,
+        riskRewardRatio: true,
+      },
+    });
+
+    if (!backtest) {
+      throw new Error("Backtest not found");
+    }
+
+    const wins = backtest.winningTrades;
+    const losses = backtest.losingTrades;
+    const totalTrades = backtest.totalTrades;
+
+    if (totalTrades < 2) {
+      return {
+        consistencyPercent: null,
+        passed: false,
+        bestDayProfit: 0,
+        totalProfit: 0,
+        profitableDays: wins,
+        losingDays: losses,
+        threshold,
+        message: `ต้องมีอย่างน้อย 2 trades (ปัจจุบันมี ${totalTrades})`,
+        method: "backtest_stats",
+        riskPercent,
+        rrRatio,
+      };
+    }
+
+    // Calculate using the formula:
+    // Best Day Profit = Risk × RR (one winning trade)
+    // Total Profit = (Wins × Risk × RR) - (Losses × Risk)
+    const bestDayProfit = riskPercent * rrRatio;
+    const totalWinProfit = wins * riskPercent * rrRatio;
+    const totalLossAmount = losses * riskPercent;
+    const totalProfit = totalWinProfit - totalLossAmount;
+
+    // Edge case: total profit is 0 or negative
+    if (totalProfit <= 0) {
+      return {
+        consistencyPercent: null,
+        passed: false,
+        bestDayProfit,
+        totalProfit,
+        profitableDays: wins,
+        losingDays: losses,
+        threshold,
+        message:
+          totalProfit === 0
+            ? "กำไรรวมเป็น 0 - ไม่สามารถคำนวณได้"
+            : "กำไรรวมติดลบ - ไม่ผ่านเกณฑ์",
+        method: "backtest_stats",
+        riskPercent,
+        rrRatio,
+      };
+    }
+
+    // Calculate profit consistency
+    const consistencyPercent = (bestDayProfit / totalProfit) * 100;
+    const passed = consistencyPercent <= threshold;
+
+    let message: string;
+    if (passed) {
+      message = `✓ ผ่านเกณฑ์ ${threshold}% (${consistencyPercent.toFixed(1)}%)`;
+    } else {
+      // Calculate how many more trades needed to pass
+      // consistency = bestDay / total <= threshold/100
+      // total >= bestDay / (threshold/100)
+      // total >= bestDay * 100 / threshold
+      const neededTotal = (bestDayProfit * 100) / threshold;
+      const neededExtraProfit = neededTotal - totalProfit;
+      const neededExtraWins = Math.ceil(
+        neededExtraProfit / (riskPercent * rrRatio)
+      );
+      message = `✗ ไม่ผ่านเกณฑ์ ${threshold}% - ต้องชนะเพิ่มอีก ~${neededExtraWins} ไม้เพื่อผ่าน`;
+    }
+
+    return {
+      consistencyPercent,
+      passed,
+      bestDayProfit,
+      totalProfit,
+      profitableDays: wins,
+      losingDays: losses,
+      threshold,
+      message,
+      method: "backtest_stats",
+      riskPercent,
+      rrRatio,
+      totalTrades,
+    };
+  } catch (error: unknown) {
+    const err = error as { message?: string };
+    throw new Error(err.message || "Failed to calculate Profit Consistency");
+  }
+}
+
 export async function duplicateBacktest(id: string) {
   try {
     if (!id) throw new Error("Backtest ID is required");
@@ -378,7 +749,13 @@ export async function duplicateBacktest(id: string) {
 
     // Create a copy with "(Copy)" appended to name
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: _id, createdAt: _createdAt, equityCurve, monthlyReturns, ...data } = original;
+    const {
+      id: _id,
+      createdAt: _createdAt,
+      equityCurve,
+      monthlyReturns,
+      ...data
+    } = original;
 
     const newBacktest = await prisma.backtestResult.create({
       data: {

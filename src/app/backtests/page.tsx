@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Pencil, Eye } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,11 @@ async function getBacktests(params: SearchParams) {
     where.OR = [
       { symbol: { contains: params.search, mode: "insensitive" } },
       { name: { contains: params.search, mode: "insensitive" } },
-      { tradingSystem: { name: { contains: params.search, mode: "insensitive" } } },
+      {
+        tradingSystem: {
+          name: { contains: params.search, mode: "insensitive" },
+        },
+      },
     ];
   }
 
@@ -77,14 +81,21 @@ interface BacktestsPageProps {
   searchParams: Promise<SearchParams>;
 }
 
-export default async function BacktestsPage({ searchParams }: BacktestsPageProps) {
+export default async function BacktestsPage({
+  searchParams,
+}: BacktestsPageProps) {
   const params = await searchParams;
   const [backtests, systems] = await Promise.all([
     getBacktests(params),
     getSystems(),
   ]);
 
-  const hasFilters = params.search || params.system || params.minWinRate || params.minPF || params.profitable;
+  const hasFilters =
+    params.search ||
+    params.system ||
+    params.minWinRate ||
+    params.minPF ||
+    params.profitable;
 
   return (
     <>
@@ -97,7 +108,7 @@ export default async function BacktestsPage({ searchParams }: BacktestsPageProps
               : `All recorded backtest results (${backtests.length})`}
           </p>
           <Button asChild>
-            <Link href="/backtests/new">
+            <Link href="/backtests/create">
               <Plus className="mr-2 h-4 w-4" />
               New Backtest
             </Link>
@@ -113,15 +124,16 @@ export default async function BacktestsPage({ searchParams }: BacktestsPageProps
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>System</TableHead>
+                    <TableHead>Backtest</TableHead>
                     <TableHead>Symbol</TableHead>
+                    <TableHead>System</TableHead>
                     <TableHead>Period</TableHead>
                     <TableHead className="text-right">Net P/L</TableHead>
                     <TableHead className="text-right">Return %</TableHead>
                     <TableHead className="text-right">Win Rate</TableHead>
-                    <TableHead className="text-right">Profit Factor</TableHead>
+                    <TableHead className="text-right">PF</TableHead>
                     <TableHead className="text-right">Trades</TableHead>
-                    <TableHead className="text-right">Max DD %</TableHead>
+                    <TableHead className="text-right">DD %</TableHead>
                     <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -130,17 +142,21 @@ export default async function BacktestsPage({ searchParams }: BacktestsPageProps
                     <TableRow key={backtest.id}>
                       <TableCell className="font-medium">
                         <Link
+                          href={`/backtests/${backtest.id}`}
+                          className="hover:underline text-primary"
+                        >
+                          {backtest.name || `${backtest.symbol} Backtest`}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{backtest.symbol}</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        <Link
                           href={`/systems/${backtest.tradingSystemId}`}
                           className="hover:underline"
                         >
                           {backtest.tradingSystem.name}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link href={`/backtests/${backtest.id}`}>
-                          <Badge variant="outline" className="cursor-pointer hover:bg-accent">
-                            {backtest.symbol}
-                          </Badge>
                         </Link>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
@@ -186,14 +202,13 @@ export default async function BacktestsPage({ searchParams }: BacktestsPageProps
                           : "-"}
                       </TableCell>
                       <TableCell>
-                        <div className="flex justify-center gap-1">
-                          <Button variant="ghost" size="icon" asChild className="h-8 w-8">
-                            <Link href={`/backtests/${backtest.id}`}>
-                              <Eye className="h-4 w-4" />
-                              <span className="sr-only">View</span>
-                            </Link>
-                          </Button>
-                          <Button variant="ghost" size="icon" asChild className="h-8 w-8">
+                        <div className="flex justify-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            className="h-8 w-8"
+                          >
                             <Link href={`/backtests/${backtest.id}/edit`}>
                               <Pencil className="h-4 w-4" />
                               <span className="sr-only">Edit</span>
@@ -217,7 +232,7 @@ export default async function BacktestsPage({ searchParams }: BacktestsPageProps
                 Record your first backtest to start tracking performance.
               </p>
               <Button asChild>
-                <Link href="/backtests/new">
+                <Link href="/backtests/create">
                   <Plus className="mr-2 h-4 w-4" />
                   Record Backtest
                 </Link>

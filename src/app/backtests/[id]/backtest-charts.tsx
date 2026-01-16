@@ -8,20 +8,20 @@ import {
   addMonthlyReturns,
   deleteMonthlyReturns,
 } from "../actions";
-import { Decimal } from "@prisma/client/runtime/library";
 
+// Support both Decimal objects (from Prisma) and plain numbers (serialized)
 interface EquityPoint {
   id: string;
-  date: Date;
-  equity: Decimal;
-  drawdown: Decimal | null;
+  date: Date | string;
+  equity: number | { toNumber?(): number; toString(): string };
+  drawdown: number | { toNumber?(): number; toString(): string } | null;
 }
 
 interface MonthlyReturn {
   id: string;
   year: number;
   month: number;
-  returnPercent: Decimal;
+  returnPercent: number | { toNumber?(): number; toString(): string };
   trades: number | null;
 }
 
@@ -31,6 +31,15 @@ interface BacktestChartsProps {
   monthlyReturns: MonthlyReturn[];
 }
 
+// Helper to convert Decimal or number to number
+function toNumber(
+  value: number | { toNumber?(): number; toString(): string }
+): number {
+  if (typeof value === "number") return value;
+  if (typeof value.toNumber === "function") return value.toNumber();
+  return Number(value.toString());
+}
+
 export function BacktestCharts({
   backtestId,
   equityCurve,
@@ -38,16 +47,19 @@ export function BacktestCharts({
 }: BacktestChartsProps) {
   // Convert to serializable format
   const equityData = equityCurve.map((p) => ({
-    date: p.date.toISOString().split("T")[0],
-    equity: Number(p.equity),
-    drawdown: p.drawdown ? Number(p.drawdown) : null,
+    date:
+      typeof p.date === "string"
+        ? p.date.split("T")[0]
+        : p.date.toISOString().split("T")[0],
+    equity: toNumber(p.equity),
+    drawdown: p.drawdown ? toNumber(p.drawdown) : null,
   }));
 
   const monthlyData = monthlyReturns.map((r) => ({
     id: r.id,
     year: r.year,
     month: r.month,
-    returnPercent: Number(r.returnPercent),
+    returnPercent: toNumber(r.returnPercent),
     trades: r.trades,
   }));
 
@@ -64,7 +76,12 @@ export function BacktestCharts({
   }
 
   async function handleAddMonthlyReturns(
-    returns: { year: number; month: number; returnPercent: number; trades?: number | null }[]
+    returns: {
+      year: number;
+      month: number;
+      returnPercent: number;
+      trades?: number | null;
+    }[]
   ) {
     await addMonthlyReturns(backtestId, returns);
   }

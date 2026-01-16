@@ -12,7 +12,8 @@ import { DeleteBacktestButton } from "./delete-button";
 import { DuplicateBacktestButton } from "./duplicate-button";
 import { BacktestCharts } from "./backtest-charts";
 import { TradingViewSection } from "./tradingview-section";
-
+import { CalculateSharpeButton } from "./calculate-sharpe-button";
+import { ProfitConsistencyCalculator } from "./profit-consistency-calculator";
 
 interface BacktestDetailPageProps {
   params: Promise<{ id: string }>;
@@ -33,7 +34,9 @@ async function getBacktest(id: string) {
   });
 }
 
-export default async function BacktestDetailPage({ params }: BacktestDetailPageProps) {
+export default async function BacktestDetailPage({
+  params,
+}: BacktestDetailPageProps) {
   const { id } = await params;
   const backtest = await getBacktest(id);
 
@@ -41,11 +44,30 @@ export default async function BacktestDetailPage({ params }: BacktestDetailPageP
     notFound();
   }
 
+  // Serialize Decimal objects to plain numbers for Client Components
+  const serializedEquityCurve = backtest.equityCurve.map((point) => ({
+    id: point.id,
+    backtestId: point.backtestId,
+    date: point.date.toISOString(),
+    equity: Number(point.equity),
+    drawdown: point.drawdown ? Number(point.drawdown) : null,
+  }));
+
+  const serializedMonthlyReturns = backtest.monthlyReturns.map((ret) => ({
+    id: ret.id,
+    backtestId: ret.backtestId,
+    year: ret.year,
+    month: ret.month,
+    returnPercent: Number(ret.returnPercent),
+    trades: ret.trades,
+  }));
+
   const metrics = [
     {
       label: "Net Profit",
       value: `$${Number(backtest.netProfit).toLocaleString()}`,
-      color: Number(backtest.netProfit) >= 0 ? "text-green-600" : "text-red-600",
+      color:
+        Number(backtest.netProfit) >= 0 ? "text-green-600" : "text-red-600",
     },
     {
       label: "Return %",
@@ -53,7 +75,9 @@ export default async function BacktestDetailPage({ params }: BacktestDetailPageP
         ? `${Number(backtest.netProfitPercent).toFixed(2)}%`
         : "-",
       color:
-        Number(backtest.netProfitPercent) >= 0 ? "text-green-600" : "text-red-600",
+        Number(backtest.netProfitPercent) >= 0
+          ? "text-green-600"
+          : "text-red-600",
     },
     {
       label: "Win Rate",
@@ -132,9 +156,7 @@ export default async function BacktestDetailPage({ params }: BacktestDetailPageP
 
   return (
     <>
-      <Header
-        title={`${backtest.tradingSystem.name} - ${backtest.symbol}`}
-      />
+      <Header title={`${backtest.tradingSystem.name} - ${backtest.symbol}`} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         {/* Actions */}
         <div className="flex gap-2">
@@ -179,11 +201,15 @@ export default async function BacktestDetailPage({ params }: BacktestDetailPageP
                 )}
               </div>
               <div className="text-right">
-                <p className="text-sm text-muted-foreground">Starting Capital</p>
+                <p className="text-sm text-muted-foreground">
+                  Starting Capital
+                </p>
                 <p className="font-medium">
                   ${Number(backtest.startingCapital).toLocaleString()}
                 </p>
-                <p className="text-sm text-muted-foreground mt-2">Ending Capital</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Ending Capital
+                </p>
                 <p className="font-medium">
                   ${Number(backtest.endingCapital).toLocaleString()}
                 </p>
@@ -214,7 +240,10 @@ export default async function BacktestDetailPage({ params }: BacktestDetailPageP
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
               {tradeStats.map((stat) => (
-                <div key={stat.label} className="flex justify-between border-b pb-2">
+                <div
+                  key={stat.label}
+                  className="flex justify-between border-b pb-2"
+                >
                   <span className="text-muted-foreground">{stat.label}</span>
                   <span className="font-medium">{stat.value}</span>
                 </div>
@@ -223,15 +252,90 @@ export default async function BacktestDetailPage({ params }: BacktestDetailPageP
           </CardContent>
         </Card>
 
+        {/* Risk Metrics & Sharpe Ratio Calculator */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Risk Metrics - คำนวณ Sharpe Ratio</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div>
+                <h4 className="text-sm font-medium mb-2">
+                  ค่า Sharpe Ratio ปัจจุบัน
+                </h4>
+                <p className="text-3xl font-bold">
+                  {backtest.sharpeRatio
+                    ? Number(backtest.sharpeRatio).toFixed(2)
+                    : "-"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {Number(backtest.sharpeRatio) >= 2
+                    ? "✓ ดีมาก (>2.0)"
+                    : Number(backtest.sharpeRatio) >= 1
+                    ? "○ ยอมรับได้ (1.0-2.0)"
+                    : backtest.sharpeRatio
+                    ? "△ ต้องปรับปรุง (<1.0)"
+                    : "ยังไม่มีข้อมูล"}
+                </p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium mb-2">คำนวณอัตโนมัติ</h4>
+                <CalculateSharpeButton
+                  backtestId={backtest.id}
+                  currentValue={
+                    backtest.sharpeRatio ? Number(backtest.sharpeRatio) : null
+                  }
+                  hasMonthlyReturns={backtest.monthlyReturns.length >= 3}
+                  hasEquityCurve={backtest.equityCurve.length >= 10}
+                  hasDrawdownData={backtest.maxDrawdownPercent !== null}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Profit Consistency Calculator */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Profit Consistency Rule</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProfitConsistencyCalculator
+              backtestId={backtest.id}
+              winningTrades={backtest.winningTrades}
+              losingTrades={backtest.losingTrades}
+              totalTrades={backtest.totalTrades}
+              riskRewardRatio={
+                backtest.riskRewardRatio
+                  ? Number(backtest.riskRewardRatio)
+                  : null
+              }
+              defaultRiskPercent={
+                backtest.tradingSystem.riskPerTrade
+                  ? Number(backtest.tradingSystem.riskPerTrade)
+                  : null
+              }
+              defaultRR={
+                backtest.tradingSystem.defaultRR
+                  ? Number(backtest.tradingSystem.defaultRR)
+                  : null
+              }
+            />
+          </CardContent>
+        </Card>
+
         {/* Charts - Equity Curve & Monthly Returns */}
         <BacktestCharts
           backtestId={backtest.id}
-          equityCurve={backtest.equityCurve}
-          monthlyReturns={backtest.monthlyReturns}
+          equityCurve={serializedEquityCurve}
+          monthlyReturns={serializedMonthlyReturns}
         />
 
         {/* TradingView Chart */}
-        <TradingViewSection symbol={backtest.symbol} timeframe={backtest.tradingSystem.timeframe} />
+        <TradingViewSection
+          symbol={backtest.symbol}
+          timeframe={backtest.tradingSystem.timeframe}
+        />
 
         {/* Notes */}
         {backtest.notes && (
